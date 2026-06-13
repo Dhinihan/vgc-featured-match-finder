@@ -1,4 +1,4 @@
-import "./http";
+import { fetchWithRetry } from "./http";
 import type { ChampionshipPointsPlayer } from "@/domain/types";
 import { normalizePlayerName } from "@/domain/normalize-player-name";
 
@@ -50,7 +50,11 @@ export async function fetchChampionshipPoints(): Promise<ChampionshipPointsImpor
     url.searchParams.set("page_size", String(PAGE_SIZE));
     url.searchParams.set("page", String(page));
 
-    const response = await fetch(url, { cache: "no-store" });
+    const response = await fetchWithRetry(
+      url,
+      { cache: "no-store" },
+      { label: `Play! Pokémon API (página ${page})` }
+    );
     if (!response.ok) {
       throw new Error(`Play! Pokémon API returned ${response.status} on page ${page}`);
     }
