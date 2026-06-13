@@ -47,17 +47,7 @@ async function refreshIndexCache(now: Date): Promise<void> {
     .onConflictDoUpdate({ target: appMeta.key, set: { value: now.toISOString(), updatedAt: now } });
 }
 
-/**
- * Lista torneios Masters recentes (RN-08), cache-first: revalida o indice PokéData
- * no maximo a cada RECENT_EVENTS_TTL_SECONDS e responde sempre a partir do banco.
- */
-export async function listRecentEvents(): Promise<RecentEvent[]> {
-  const now = new Date();
-
-  if (!(await indexCacheIsFresh(now))) {
-    await refreshIndexCache(now);
-  }
-
+async function readRecentEventsFromDb(now: Date): Promise<RecentEvent[]> {
   const windowStart = new Date(now.getTime() - env.recentEventsWindowHours() * 3_600_000);
 
   const rows = await db
@@ -73,4 +63,23 @@ export async function listRecentEvents(): Promise<RecentEvent[]> {
     lastActivityAt: row.lastActivityAt.toISOString(),
     sourceUrl: row.sourceUrl ?? ""
   }));
+}
+
+/**
+ * Lista torneios Masters recentes (RN-08), cache-first: revalida o indice PokéData
+ * no maximo a cada RECENT_EVENTS_TTL_SECONDS e responde sempre a partir do banco.
+ */
+export async function listRecentEvents(): Promise<RecentEvent[]> {
+  const now = new Date();
+
+  if (!(await indexCacheIsFresh(now))) {
+    try {
+      await refreshIndexCache(now);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`falha ao revalidar indice PokéData; usando cache do banco: ${message}`);
+    }
+  }
+
+  return readRecentEventsFromDb(now);
 }
