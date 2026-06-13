@@ -99,9 +99,14 @@ Comandos:
 - **Ambíguo usa o maior CP** (divergência deliberada do PRD, que zera o CP):
   preferimos um falso positivo a esconder uma mesa relevante; o status
   "ambíguo" continua visível nas stats e no subtexto da tabela.
-- **Happy Eyeballs:** `src/sources/http.ts` aumenta o
-  `autoSelectFamilyAttemptTimeout` do Node — o connect até o PokéData (~300 ms)
-  estoura o default de 250 ms e o `fetch` falharia com `ETIMEDOUT`.
+- **Resiliência de rede:** `src/sources/http.ts` centraliza as chamadas às
+  fontes públicas. Além de aumentar o `autoSelectFamilyAttemptTimeout` do Node
+  (o connect até o PokéData ~300 ms estoura o default de 250 ms e o `fetch`
+  falharia com `ETIMEDOUT`), o helper `fetchWithRetry` aplica timeout por
+  tentativa, retenta falhas de rede transitórias e respostas 5xx/429 com backoff
+  exponencial, envia um `User-Agent` (evita bloqueio por WAF) e troca o genérico
+  `fetch failed` por uma mensagem com a causa real (ex.: `ECONNRESET`,
+  `tempo esgotado`).
 
 ## Referência
 

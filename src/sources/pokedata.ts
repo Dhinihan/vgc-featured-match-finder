@@ -1,4 +1,4 @@
-import "./http";
+import { fetchWithRetry } from "./http";
 import type { RecentEvent } from "@/domain/types";
 
 const INDEX_URL = "https://www.pokedata.ovh/standingsVGC/";
@@ -94,7 +94,11 @@ export function parseEventIndexHtml(html: string): IndexedEvent[] {
 }
 
 export async function fetchEventIndex(): Promise<IndexedEvent[]> {
-  const response = await fetch(INDEX_URL, { cache: "no-store" });
+  const response = await fetchWithRetry(
+    INDEX_URL,
+    { cache: "no-store" },
+    { label: "índice PokéData" }
+  );
   if (!response.ok) {
     throw new Error(`PokéData index returned ${response.status}`);
   }
@@ -141,7 +145,11 @@ export async function fetchEventStandings(
   externalEventId: string
 ): Promise<{ payload: string; sourceUrl: string; fetchedAt: Date }> {
   const sourceUrl = eventStandingsUrl(externalEventId);
-  const response = await fetch(sourceUrl, { cache: "no-store" });
+  const response = await fetchWithRetry(
+    sourceUrl,
+    { cache: "no-store" },
+    { label: `standings PokéData (evento ${externalEventId})` }
+  );
   if (!response.ok) {
     throw new Error(`PokéData standings returned ${response.status} for event ${externalEventId}`);
   }
