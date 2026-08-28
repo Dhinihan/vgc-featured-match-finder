@@ -8,7 +8,7 @@ import type {
   TournamentPlayer
 } from "@/domain/types";
 
-import { countDefeats } from "@/domain/parsing";
+import { hasPlayerWithDefeats } from "@/domain/parsing";
 
 type FilterMode =
   | "all"
@@ -53,13 +53,6 @@ function applyFilter(pairings: RankedPairing[], mode: FilterMode): RankedPairing
     default:
       return pairings;
   }
-}
-
-/** Pelo menos um jogador com ate maxDefeats; BYE avalia so o jogador A. */
-function hasPlayerWithDefeats(pairing: RankedPairing, maxDefeats: number): boolean {
-  return [pairing.playerA, pairing.playerB].some(
-    (player) => player && countDefeats(player.tournamentRecord) <= maxDefeats
-  );
 }
 
 /** RN-27 */

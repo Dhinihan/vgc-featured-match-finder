@@ -6,6 +6,7 @@ import {
   detectCurrentRound,
   extractPairingsFromStandings,
   formatTournamentRecord,
+  hasPlayerWithDefeats,
   isPendingResult,
   parsePlayerLabel,
   parseTournamentRecord,
@@ -119,6 +120,9 @@ describe("parseTournamentRecord / countDefeats", () => {
     expect(parseTournamentRecord("")).toBeNull();
     expect(parseTournamentRecord("abc")).toBeNull();
     expect(parseTournamentRecord("3")).toBeNull();
+    expect(parseTournamentRecord("3x-1")).toBeNull();
+    expect(parseTournamentRecord("3-1-2-4")).toBeNull();
+    expect(parseTournamentRecord("-1-1")).toBeNull();
   });
 
   it("empate conta como derrota e registro ausente vale zero", () => {
@@ -127,6 +131,37 @@ describe("parseTournamentRecord / countDefeats", () => {
     expect(countDefeats("1-0-2")).toBe(2);
     expect(countDefeats("0-0-3")).toBe(3);
     expect(countDefeats(null)).toBe(0);
+  });
+
+  it("BYE avalia so o jogador A, mesmo com playerB preenchido", () => {
+    const recordPlayer = (tournamentRecord: string | null): TournamentPlayer => ({
+      displayName: "Jogador",
+      normalizedName: normalizePlayerName("Jogador"),
+      country: "US",
+      tournamentRecord,
+      championshipPoints: null,
+      championshipPointsMatch: { status: "not-found" }
+    });
+    const byePairing = (recordA: string | null, recordB: string | null): Pairing =>
+      pairing({
+        playerA: recordPlayer(recordA),
+        playerB: recordB === null ? null : recordPlayer(recordB),
+        result: "W",
+        isPending: false,
+        isBye: true
+      });
+
+    // Jogador A 2-3 (3 derrotas): fora do filtro mesmo com playerB 5-0 preenchido.
+    expect(hasPlayerWithDefeats(byePairing("2-3", "5-0"), 2)).toBe(false);
+    expect(hasPlayerWithDefeats(byePairing("2-3", "5-0"), 0)).toBe(false);
+    // Jogador A 5-0: passa.
+    expect(hasPlayerWithDefeats(byePairing("5-0", "2-3"), 0)).toBe(true);
+    // Sem playerB (caso real do parsing de BYE).
+    expect(hasPlayerWithDefeats(byePairing("5-0", null), 0)).toBe(true);
+    // Nao-BYE: pelo menos um jogador basta.
+    expect(
+      hasPlayerWithDefeats({ ...byePairing("2-3", "5-0"), isBye: false }, 0)
+    ).toBe(true);
   });
 });
 

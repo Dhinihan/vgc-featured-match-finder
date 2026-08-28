@@ -1,4 +1,4 @@
-import type { ExtractedPairing } from "./types";
+import type { ExtractedPairing, Pairing } from "./types";
 import { normalizePlayerName } from "./normalize-player-name";
 
 export type ParsedPlayerLabel = {
@@ -54,12 +54,15 @@ export function parseTournamentRecord(record: string | null): ParsedRecord | nul
     return null;
   }
 
-  const parts = record.split("-").map((part) => Number.parseInt(part, 10));
-  if (parts.length < 2 || parts.some((value) => Number.isNaN(value))) {
+  const parts = record.trim().split("-").map((part) => part.trim());
+  if (
+    (parts.length !== 2 && parts.length !== 3) ||
+    parts.some((part) => !/^\d+$/.test(part))
+  ) {
     return null;
   }
 
-  const [wins, losses, ties = 0] = parts;
+  const [wins, losses, ties = 0] = parts.map(Number);
   return { wins, losses, ties };
 }
 
@@ -67,6 +70,15 @@ export function parseTournamentRecord(record: string | null): ParsedRecord | nul
 export function countDefeats(record: string | null): number {
   const parsed = parseTournamentRecord(record);
   return parsed ? parsed.losses + parsed.ties : 0;
+}
+
+/**
+ * Pelo menos um jogador com ate maxDefeats. BYE avalia so o jogador A, mesmo que
+ * playerB venha preenchido (isBye e playerB sao independentes no contrato).
+ */
+export function hasPlayerWithDefeats(pairing: Pairing, maxDefeats: number): boolean {
+  const players = pairing.isBye ? [pairing.playerA] : [pairing.playerA, pairing.playerB];
+  return players.some((player) => player && countDefeats(player.tournamentRecord) <= maxDefeats);
 }
 
 /** RN-05: { wins, losses, ties } -> "W-L" ou "W-L-T"; null se 0-0-0. */
