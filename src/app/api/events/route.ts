@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminRefreshSecret } from "@/env";
 import { listRecentEvents } from "@/services/recent-events";
-import { registerEvent } from "@/services/register-event";
+import { isValidRk9EventId, registerEvent } from "@/services/register-event";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +22,18 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = (await request.json().catch(() => ({}))) as { externalEventId?: string };
-    if (!body.externalEventId) {
-      return NextResponse.json({ error: "externalEventId é obrigatório" }, { status: 400 });
+    const body = (await request.json().catch(() => null)) as
+      | { externalEventId?: unknown }
+      | null;
+
+    if (typeof body?.externalEventId !== "string") {
+      return NextResponse.json(
+        { error: "externalEventId (string) é obrigatório" },
+        { status: 400 }
+      );
+    }
+    if (!isValidRk9EventId(body.externalEventId.trim())) {
+      return NextResponse.json({ error: "ID de evento RK9 inválido" }, { status: 400 });
     }
 
     const event = await registerEvent(body.externalEventId);

@@ -114,7 +114,7 @@ export async function refreshEventPairings(
     // ate achar uma rodada com partidas.
     let targetRound = currentRound;
     let round = await fetchRk9RoundPairings(externalEventId, meta.mastersPod, targetRound);
-    while (targetRound >= 1 && round.pairings.length === 0) {
+    while (targetRound > 1 && round.pairings.length === 0) {
       targetRound -= 1;
       round = await fetchRk9RoundPairings(externalEventId, meta.mastersPod, targetRound);
     }

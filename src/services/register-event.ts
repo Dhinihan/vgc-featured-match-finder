@@ -9,6 +9,12 @@ export type RegisteredEvent = {
   sourceUrl: string;
 };
 
+const RK9_EVENT_ID_RE = /^[A-Za-z0-9_-]{5,64}$/;
+
+export function isValidRk9EventId(externalEventId: string): boolean {
+  return RK9_EVENT_ID_RE.test(externalEventId);
+}
+
 /**
  * Cadastra (ou atualiza) um evento a partir do ID RK9 de pairings
  * (ex.: WCS02wAQpCIaqFmXxER4 em rk9.gg/pairings/WCS02wAQpCIaqFmXxER4).
@@ -16,7 +22,7 @@ export type RegisteredEvent = {
  */
 export async function registerEvent(externalEventId: string): Promise<RegisteredEvent> {
   const id = externalEventId.trim();
-  if (!/^[A-Za-z0-9_-]{5,64}$/.test(id)) {
+  if (!isValidRk9EventId(id)) {
     throw new Error(`ID de evento RK9 inválido: "${externalEventId}"`);
   }
 
