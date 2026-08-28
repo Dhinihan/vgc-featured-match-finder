@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import { normalizePlayerName } from "./normalize-player-name";
 import { countryCodesMatch, normalizeCountryCode } from "./normalize-country";
 import {
+  countDefeats,
   detectCurrentRound,
   extractPairingsFromStandings,
   formatTournamentRecord,
   isPendingResult,
   parsePlayerLabel,
+  parseTournamentRecord,
   resolveCurrentRound
 } from "./parsing";
 import { createLeaderboardIndex, matchPlayerWithLeaderboardIndex } from "./leaderboard-index";
@@ -103,6 +105,28 @@ describe("RN-05 formatTournamentRecord", () => {
     expect(formatTournamentRecord({ wins: 3, losses: 1, ties: 0 })).toBe("3-1");
     expect(formatTournamentRecord({ wins: 3, losses: 1, ties: 2 })).toBe("3-1-2");
     expect(formatTournamentRecord({ wins: 0, losses: 0, ties: 0 })).toBeNull();
+  });
+});
+
+describe("parseTournamentRecord / countDefeats", () => {
+  it("faz round-trip com formatTournamentRecord", () => {
+    expect(parseTournamentRecord("3-1")).toEqual({ wins: 3, losses: 1, ties: 0 });
+    expect(parseTournamentRecord("3-1-2")).toEqual({ wins: 3, losses: 1, ties: 2 });
+  });
+
+  it("retorna null para registro ausente ou invalido", () => {
+    expect(parseTournamentRecord(null)).toBeNull();
+    expect(parseTournamentRecord("")).toBeNull();
+    expect(parseTournamentRecord("abc")).toBeNull();
+    expect(parseTournamentRecord("3")).toBeNull();
+  });
+
+  it("empate conta como derrota e registro ausente vale zero", () => {
+    expect(countDefeats("3-0")).toBe(0);
+    expect(countDefeats("2-1")).toBe(1);
+    expect(countDefeats("1-0-2")).toBe(2);
+    expect(countDefeats("0-0-3")).toBe(3);
+    expect(countDefeats(null)).toBe(0);
   });
 });
 

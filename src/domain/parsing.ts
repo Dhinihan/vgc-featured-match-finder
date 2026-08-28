@@ -46,6 +46,29 @@ function parsePositiveInt(value: unknown): number | null {
   return null;
 }
 
+export type ParsedRecord = { wins: number; losses: number; ties: number };
+
+/** Reverso do formatTournamentRecord: "W-L" ou "W-L-T" -> contagens; null se ausente/invalido. */
+export function parseTournamentRecord(record: string | null): ParsedRecord | null {
+  if (!record) {
+    return null;
+  }
+
+  const parts = record.split("-").map((part) => Number.parseInt(part, 10));
+  if (parts.length < 2 || parts.some((value) => Number.isNaN(value))) {
+    return null;
+  }
+
+  const [wins, losses, ties = 0] = parts;
+  return { wins, losses, ties };
+}
+
+/** Derrotas para filtros (empate conta como derrota); sem registro (0-0-0) = 0. */
+export function countDefeats(record: string | null): number {
+  const parsed = parseTournamentRecord(record);
+  return parsed ? parsed.losses + parsed.ties : 0;
+}
+
 /** RN-05: { wins, losses, ties } -> "W-L" ou "W-L-T"; null se 0-0-0. */
 export function formatTournamentRecord(record: unknown): string | null {
   if (!record || typeof record !== "object") {
