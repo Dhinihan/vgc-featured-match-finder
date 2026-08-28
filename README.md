@@ -48,16 +48,27 @@ Comandos:
    Pagina a API oficial Play! Pokémon (VG Masters global 2026, `page_size=300`)
    e persiste um novo snapshot em `championship_points_snapshots/_players`.
 
-2. **Abrir a UI** — a lista de torneios Masters recentes vem do índice
-   PokéData (`standingsVGC`), com cache em banco (TTL `RECENT_EVENTS_TTL_SECONDS`).
+2. **Cadastrar o evento** — o ID RK9 da URL de pairings (ex.: `WCS02wAQpCIaqFmXxER4`
+   em rk9.gg/pairings/WCS02wAQpCIaqFmXxER4) é cadastrado pela seção
+   "Administração" da UI, ou via curl:
+
+   ```bash
+   curl -X POST -H "x-admin-secret: $ADMIN_REFRESH_SECRET" \
+     -H "content-type: application/json" -d '{"externalEventId":"WCS02wAQpCIaqFmXxER4"}' \
+     http://localhost:3000/api/events
+   ```
+
+   Substitui o índice PokéData (fora do ar) como descoberta de eventos.
 
 3. **Selecionar um torneio** — o dashboard lê só do banco (zero chamadas externas).
 
-4. **Atualizar partidas** — importa standings/pairings da rodada alvo do JSON
-   PokéData. Cache-first: snapshot fresco da rodada atual
-   (`ACTIVE_ROUND_TTL_SECONDS`) evita nova chamada; rodadas finalizadas não são
-   reimportadas. Reimportação forçada: `POST /api/events/{id}/refresh` com body
-   `{"force":true}` e header `x-admin-secret`.
+4. **Atualizar partidas** — importa os pairings da rodada alvo do HTML server-
+   rendered do RK9 (`rk9.gg/pairings/{id}?pod={masters}&rnd={N}`). A rodada atual
+   vem do label "Masters in Round N" da página base. Cache-first: snapshot fresco
+   da rodada atual (`ACTIVE_ROUND_TTL_SECONDS`) evita nova chamada; rodadas
+   finalizadas não são reimportadas. Reimportação forçada:
+   `POST /api/events/{id}/refresh` com body `{"force":true}` e header
+   `x-admin-secret`.
 
 5. **Ver o ranking** — tabela ordenada por `CP_A × CP_B` (CP ausente = 1, BYE = 0),
    filtros Todas / Com placar / Somente pendentes / Ocultar CP ausente / Top 10 /
@@ -68,19 +79,20 @@ Comandos:
 | Método | Rota | Descrição |
 |--------|------|-----------|
 | GET | `/api/events` | Torneios Masters recentes (janela `RECENT_EVENTS_WINDOW_HOURS`) |
+| POST | `/api/events` | Cadastra evento por ID RK9; exige `x-admin-secret` |
 | GET | `/api/events/{externalEventId}/dashboard` | Dashboard do evento (só banco) |
 | POST | `/api/events/{externalEventId}/refresh` | Atualiza partidas; `{"force":true}` exige `x-admin-secret` |
 | POST | `/api/admin/import-cp` | Importa snapshot de CP; exige `x-admin-secret` |
 
 ## Decisões/simplificações da v1 dev
 
-- **Atividade de evento (RN-08):** o índice PokéData só expõe o intervalo de
-  datas do evento; um torneio é "recente" se `agora` está entre o início do
-  evento e o fim do último dia + `RECENT_EVENTS_WINDOW_HOURS`.
-- **Rodada ao vivo:** detectada apenas pelo JSON de standings (RN-11); o HTML
-  do PokéData não é consultado (RN-12 coberta por `resolveCurrentRound`, não usada no fluxo).
+- **Descoberta de eventos:** cadastro manual por ID RK9 (o índice PokéData
+  está fora do ar). Um torneio é "recente" enquanto `last_activity_at` (atualizado
+  a cada refresh) está dentro de `RECENT_EVENTS_WINDOW_HOURS`.
+- **Rodada ao vivo:** detectada pelo label "Masters in Round N" da página de
+  pairings do RK9 (RN-12 `resolveCurrentRound` não é usada no fluxo).
 - **Snapshot de rodada:** `event_round_snapshots.raw_payload` guarda os pairings
-  normalizados extraídos (não o JSON bruto de ~600 KB), com `source_hash` do bruto.
+  normalizados extraídos (não o HTML bruto do RK9), com `source_hash` do bruto.
 - **Match CP:** derivado na leitura do dashboard a partir do snapshot de CP mais
   recente (sem tabela de cache `player_cp_matches` na v1).
 - **Nomes truncados da API oficial:** ~14% do ranking vem com sobrenome
