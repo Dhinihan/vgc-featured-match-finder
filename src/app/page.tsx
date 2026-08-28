@@ -8,13 +8,25 @@ import type {
   TournamentPlayer
 } from "@/domain/types";
 
-type FilterMode = "all" | "finished" | "pending" | "hide-missing" | "top10" | "top25";
+import { hasPlayerWithDefeats } from "@/domain/parsing";
+
+type FilterMode =
+  | "all"
+  | "finished"
+  | "pending"
+  | "hide-missing"
+  | "top10"
+  | "top25"
+  | "undefeated"
+  | "x2-or-better";
 
 const FILTERS: Array<{ mode: FilterMode; label: string }> = [
   { mode: "all", label: "Todas" },
   { mode: "finished", label: "Com placar" },
   { mode: "pending", label: "Somente pendentes" },
   { mode: "hide-missing", label: "Ocultar CP ausente" },
+  { mode: "undefeated", label: "Invictos" },
+  { mode: "x2-or-better", label: "X-2 ou melhor" },
   { mode: "top10", label: "Top 10" },
   { mode: "top25", label: "Top 25" }
 ];
@@ -30,6 +42,10 @@ function applyFilter(pairings: RankedPairing[], mode: FilterMode): RankedPairing
       return pairings.filter((pairing) => pairing.isPending);
     case "hide-missing":
       return pairings.filter((pairing) => pairing.scoreStatus !== "missing-player-cp");
+    case "undefeated":
+      return pairings.filter((pairing) => hasPlayerWithDefeats(pairing, 0));
+    case "x2-or-better":
+      return pairings.filter((pairing) => hasPlayerWithDefeats(pairing, 2));
     case "top10":
       return pairings.slice(0, 10);
     case "top25":
