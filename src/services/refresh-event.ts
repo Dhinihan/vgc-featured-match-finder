@@ -3,13 +3,8 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { eventRoundSnapshots, events, pairings, refreshRuns } from "@/db/schema";
 import type { EventDashboard, ExtractedPairing } from "@/domain/types";
-import {
-  detectCurrentRound,
-  extractPairingsFromStandings,
-  parseStandingsPayload
-} from "@/domain/parsing";
 import { env } from "@/env";
-import { fetchEventStandings } from "@/sources/pokedata";
+import { fetchRk9EventMeta, fetchRk9RoundPairings } from "@/sources/rk9";
 import { buildEventDashboard } from "./dashboard";
 
 export type RefreshResult = {
@@ -110,22 +105,21 @@ export async function refreshEventPairings(
       }
     }
 
-    const { payload, sourceUrl, fetchedAt } = await fetchEventStandings(externalEventId);
-    const standings = parseStandingsPayload(payload);
-    const standingsRound = detectCurrentRound(standings);
-    const currentRound = Math.max(standingsRound, event.currentRound);
+    // A pagina base do RK9 expoe o pod da divisao Masters e a rodada atual (label
+    // "Masters in Round N"); cada rodada vem de um fragmento ?pod=N&rnd=N.
+    const meta = await fetchRk9EventMeta(externalEventId);
+    const currentRound = Math.max(meta.currentRound, event.currentRound);
 
-    // RN-16: tenta a rodada alvo; se vazia, retrocede ate achar pairings.
+    // RN-16: tenta a rodada alvo; se vazia (pairings ainda nao publicados), retrocede
+    // ate achar uma rodada com partidas.
     let targetRound = currentRound;
-    let extracted: ExtractedPairing[] = [];
-    while (targetRound >= 1) {
-      extracted = extractPairingsFromStandings(standings, targetRound);
-      if (extracted.length > 0) {
-        break;
-      }
+    let round = await fetchRk9RoundPairings(externalEventId, meta.mastersPod, targetRound);
+    while (targetRound >= 1 && round.pairings.length === 0) {
       targetRound -= 1;
+      round = await fetchRk9RoundPairings(externalEventId, meta.mastersPod, targetRound);
     }
 
+    const extracted = round.pairings;
     if (targetRound < 1 || extracted.length === 0) {
       throw new Error(`nenhuma partida encontrada para a rodada ${currentRound}`);
     }
@@ -148,12 +142,12 @@ export async function refreshEventPairings(
     } else {
       const isFinal = extracted.every((pairing) => !pairing.isPending);
       const snapshotValues = {
-        sourceFetchedAt: fetchedAt,
+        sourceFetchedAt: round.fetchedAt,
         importedAt: now,
         expiresAt: isFinal ? null : new Date(now.getTime() + env.activeRoundTtlSeconds() * 1000),
         isFinal,
-        sourceHash: payloadHash(payload),
-        sourceUrl,
+        sourceHash: payloadHash(round.rawHtml),
+        sourceUrl: round.sourceUrl,
         rawPayload: extracted
       };
 

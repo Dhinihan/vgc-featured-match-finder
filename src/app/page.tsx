@@ -111,6 +111,9 @@ export default function Home() {
   const [adminSecret, setAdminSecret] = useState("");
   const [importingCp, setImportingCp] = useState(false);
   const [adminMessage, setAdminMessage] = useState<string | null>(null);
+  const [eventToRegister, setEventToRegister] = useState("");
+  const [registering, setRegistering] = useState(false);
+  const [registerMessage, setRegisterMessage] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   // Guarda contra respostas fora de ordem quando o usuario troca de torneio rapido.
@@ -251,6 +254,30 @@ export default function Home() {
     }
   }, [adminSecret, importingCp, selectedEventId]);
 
+  const registerEvent = useCallback(async () => {
+    const externalEventId = eventToRegister.trim();
+    if (!externalEventId || !adminSecret || registering) return;
+    setRegistering(true);
+    setRegisterMessage("Cadastrando evento…");
+
+    try {
+      const response = await fetch("/api/events", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-admin-secret": adminSecret },
+        body: JSON.stringify({ externalEventId })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "falha ao cadastrar evento");
+      setRegisterMessage(`Evento cadastrado: ${data.title} (rodada ${data.currentRound}).`);
+      setEventToRegister("");
+      loadEvents();
+    } catch (error) {
+      setRegisterMessage(error instanceof Error ? error.message : "falha ao cadastrar evento");
+    } finally {
+      setRegistering(false);
+    }
+  }, [adminSecret, eventToRegister, registering, loadEvents]);
+
   const ranked = dashboard?.rankedPairings ?? [];
   const filtered = useMemo(() => applyFilter(ranked, filter), [ranked, filter]);
   const event = dashboard?.event ?? null;
@@ -286,7 +313,7 @@ export default function Home() {
         ) : null}
         {recentEvents === null ? <p className="muted">Carregando torneios…</p> : null}
         {recentEvents !== null && recentEvents.length === 0 && !eventsError ? (
-          <p className="muted">Nenhum torneio com atividade recente.</p>
+          <p className="muted">Nenhum torneio com atividade recente. Cadastre um evento pelo ID RK9 na administração abaixo.</p>
         ) : null}
         <div className="event-list">
           {(recentEvents ?? []).map((recent) => (
@@ -508,7 +535,36 @@ export default function Home() {
       </section>
 
       <details className="panel">
-        <summary>Administração — importar Championship Points</summary>
+        <summary>Administração</summary>
+        <h3>Cadastrar evento (ID RK9)</h3>
+        <p className="muted">
+          ID da URL de pairings do RK9 — ex.: WCS02wAQpCIaqFmXxER4 em
+          rk9.gg/pairings/WCS02wAQpCIaqFmXxER4.
+        </p>
+        <div className="admin-row">
+          <input
+            type="text"
+            placeholder="ID do evento RK9"
+            value={eventToRegister}
+            onChange={(input) => setEventToRegister(input.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="ADMIN_REFRESH_SECRET"
+            value={adminSecret}
+            onChange={(input) => setAdminSecret(input.target.value)}
+          />
+          <button
+            className="secondary"
+            onClick={registerEvent}
+            disabled={!eventToRegister.trim() || !adminSecret || registering}
+          >
+            {registering ? "Cadastrando…" : "Cadastrar evento"}
+          </button>
+        </div>
+        {registerMessage ? <p className="muted">{registerMessage}</p> : null}
+
+        <h3 style={{ marginTop: 24 }}>Importar Championship Points</h3>
         <p className="muted">
           Importa o ranking VG Masters global 2026 da API oficial Play! Pokémon como um novo
           snapshot. Não roda durante o refresh de partidas.
